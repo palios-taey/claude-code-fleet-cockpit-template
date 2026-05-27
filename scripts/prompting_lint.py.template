@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+"""
+prompting_lint.py — pre-send check for Family dispatches.
+
+Implements the lint conditions from PROMPTING_STANDARDS.md (v2). Reads the
+TYPE field from the dispatch's YAML front-matter; only consultations are
+linted. Other types exit 0 with a note.
+
+Lint is mechanical. It catches the structural violations the protocol calls
+out by name. It cannot judge whether framing is actually neutral, whether
+included context is selection-biased, or whether the dispatcher had visible
+prior commitment to a position. Those are the audit role's job (§§7-9).
+
+USAGE:
+    prompting-lint <draft.md>            # full lint
+    prompting-lint --explain             # rules summary
+    prompting-lint --self-test           # run against test fixtures, expect fail
+
+EXIT:
+    0 = pass (or type != consultation)
+    1 = fail (violations printed)
+    2 = usage / file error
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+# -- protocol constants -----------------------------------------------------
+
+VALID_TYPES = {"consultation", "directive", "operational", "verification"}
+
+REQUIRED_SECTIONS = [
+    ("ground truth", r"^#+\s*(ground\s*truth|context|raw\s*context|background)\b"),
+    ("problem statement", r"^#+\s*(problem|question|task|problem\s*statement|open\s*question)\b"),
+    ("constraints", r"^#+\s*(constraints?|limits?|hard\s*limits?)\b"),
+    ("objective", r"^#+\s*(objective|deliverable|requested\s*output|output\s*format)\b"),
+]
+
+FORBIDDEN_PHRASES = [
+    (r"\bI think we should\b", "opinion injection"),
+    (r"\bI'?ve concluded\b", "opinion injection"),
+    (r"\bmy recommendation is\b", "opinion injection"),
+    (r"\bthe (right|correct|best) (approach|answer|fix|solution) is\b", "pre-loaded solution"),
+    (r"\b(clearly|obviously),?\s", "editorial framing"),
+    (r"\bplease (validate|confirm)\b", "validation-seeking"),
+    (r"\bas we (established|already (saw|know|noted))\b", "anchoring"),
+    (r"\b(\.\.\.|\[\.\.\.\]|truncated|elided|cut for brevity|omitted for space)\b",
+     "context truncation marker"),
+]
+
+VALIDATION_QUESTION_PATTERNS = [
+    r"\bis\s+(?:[^?\n]{1,80}?)\s+(safe|correct|optimal|right|best|fine|ok|okay)\b\s*\??",
+    r"\bare\s+(?:[^?\n]{1,80}?)\s+(safe|correct|optimal|right|best|fine|ok|okay)\b\s*\??",
+    r"\bdoes\s+this\s+(work|make sense|look right|seem reasonable)\b\s*\??",
+    r"\bwill\s+this\s+(work|fix|solve|hold)\b\s*\??",
+    r"\bcan\s+(you|i)\s+confirm\b",
+    r"\bplease\s+(verify|validate|confirm)\b",
+]
+
+CLAIM_LABELS = ["Observed", "Inferred", "Constraint", "Unknown", "Prior proposal"]
+
+ALTERNATIVES_HEADER = re.compile(
+    r"^#+\s*(alternatives?|options?|other\s+approaches?|prior\s+proposals?)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+INVENTORY_KEY = re.compile(
+    r"^available_context_inventory\s*:", re.IGNORECASE | re.MULTILINE
+)
+
+# -- front-matter parsing ---------------------------------------------------
+
+
+def parse_front_matter(text: str) -> dict[str, str]:
+    """Extract simple key:value pairs from leading YAML block.
+
+    Not a full YAML parser — handles the flat keys this protocol requires.
+    Nested blocks (like available_context_inventory) are detected by
+    INVENTORY_KEY separately."""
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    if end < 0:
+        return {}
+    block = text[3:end]
+    out: dict[str, str] = {}
+    for line in block.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" in line and not line.startswith("-"):
+            k, _, v = line.partition(":")
+            out[k.strip().lower()] = v.strip()
+    return out
+
+
+# -- checks ------------------------------------------------------------------
+
+
+def check_type(fm: dict[str, str]) -> tuple[str | None, list[str]]:
+    """Returns (type, failures). type may be None if missing."""
+    failures: list[str] = []
+    t = fm.get("type")
+    if not t:
+        failures.append(
+            "Missing TYPE header. Every dispatch must declare type at top:\n"
+            "  ---\n  type: consultation\n  to: <recipient>\n  ...\n  ---\n"
+            "  → see PROMPTING_STANDARDS.md §2"
+        )
+        return None, failures
+    if t not in VALID_TYPES:
+        failures.append(
+            f"Invalid type {t!r}. Must be one of: {sorted(VALID_TYPES)}\n"
+            "  → see PROMPTING_STANDARDS.md §2.1"
+        )
+        return None, failures
+    return t, failures
+
+
+def check_inventory_present(text: str) -> list[str]:
+    if not INVENTORY_KEY.search(text):
+        return [
+            "Missing `available_context_inventory` in front-matter.\n"
+            "  Required for type=consultation. Enumerate considered artifacts\n"
+            "  with INCLUDED/EXCLUDED status and a one-line reason for each\n"
+            "  exclusion. See PROMPTING_STANDARDS.md §6."
+        ]
+    return []
+
+
+def check_required_sections(text: str) -> list[str]:
+    missing = []
+    for name, pat in REQUIRED_SECTIONS:
+        if not re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE):
+            missing.append(name)
+    if missing:
+        return [
+            "Missing required section(s): " + ", ".join(missing)
+            + "\n  → see PROMPTING_STANDARDS.md §3"
+        ]
+    return []
+
+
+# Inlined constitutional content (FAMILY_KERNEL.md, IDENTITY_*.md) is delivered
+# full + verbatim + unedited at the top of dispatches — that is mandated, and we
+# cannot rewrite it to satisfy the lint. The authored-quality checks (forbidden
+# phrases, claim-label density, validation questions) must therefore lint ONLY
+# the authored wrapper, not the verbatim payload. Wrap inlined files in:
+#     <!-- BEGIN-VERBATIM: FAMILY_KERNEL.md -->
+#     ...unedited content...
+#     <!-- END-VERBATIM -->
+# Structural checks (inventory, required sections) still see the full text.
+VERBATIM_RE = re.compile(
+    r"<!--\s*BEGIN-VERBATIM\b.*?-->.*?<!--\s*END-VERBATIM\s*-->",
+    flags=re.DOTALL | re.IGNORECASE,
+)
+
+
+def strip_verbatim(text: str) -> str:
+    """Blank out BEGIN/END-VERBATIM regions, preserving line count so line
+    numbers reported by other checks stay accurate for the authored sections."""
+    return VERBATIM_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+
+
+def check_forbidden(text: str) -> list[str]:
+    hits = []
+    for pat, label in FORBIDDEN_PHRASES:
+        for m in re.finditer(pat, text, flags=re.IGNORECASE):
+            line = text[: m.start()].count("\n") + 1
+            hits.append(f"  line {line}: [{label}] {m.group(0)!r}")
+    if hits:
+        return ["Forbidden phrase / pattern:"] + hits + ["  → see PROMPTING_STANDARDS.md §4"]
+    return []
+
+
+def check_validation_questions(text: str) -> list[str]:
+    hits = []
+    for pat in VALIDATION_QUESTION_PATTERNS:
+        for m in re.finditer(pat, text, flags=re.IGNORECASE):
+            line = text[: m.start()].count("\n") + 1
+            hits.append(f"  line {line}: {m.group(0)!r}")
+    if not hits:
+        return []
+    if ALTERNATIVES_HEADER.search(text):
+        return []  # validation-seeking question is OK if alternatives are also presented
+    return [
+        "Validation-seeking question(s) without an Alternatives / Prior-proposals section:",
+        *hits,
+        "  → restate as open question, OR add a section listing real alternatives",
+        "  → see PROMPTING_STANDARDS.md §8 condition 5",
+    ]
+
+
+def count_claim_labels(text: str) -> dict[str, int]:
+    return {label: len(re.findall(rf"\b{label}\b", text)) for label in CLAIM_LABELS}
+
+
+def estimate_claim_density(text: str) -> int:
+    """Rough count of claim-shaped sentences. Intentionally generous — this
+    feeds the labels-vs-claims heuristic, not a hard rule."""
+    body = re.sub(r"^---\n.*?\n---\n", "", text, count=1, flags=re.DOTALL)
+    body = re.sub(r"```.*?```", "", body, flags=re.DOTALL)  # strip code fences
+    body = re.sub(r"^#+\s.*$", "", body, flags=re.MULTILINE)  # strip headers
+    sentences = re.split(r"(?<=[.!?])\s+", body)
+    claim_like = [
+        s for s in sentences
+        if 30 < len(s) < 400
+        and re.search(r"\d|[A-Z][a-z]+\.|\b(is|are|has|was|were|use|run|fail|crash)\b", s)
+    ]
+    return len(claim_like)
+
+
+def check_label_coverage(text: str) -> list[str]:
+    counts = count_claim_labels(text)
+    total = sum(counts.values())
+    claims = estimate_claim_density(text)
+    if claims > 5 and total < max(3, claims // 5):
+        return [
+            f"Insufficient claim labels (estimated {claims} claim-like sentences, "
+            f"found {total} labels): {counts}",
+            "  → every claim must carry one of: "
+            "Observed / Inferred / Constraint / Unknown / Prior proposal",
+            "  → see PROMPTING_STANDARDS.md §5",
+        ]
+    return []
+
+
+# -- top-level lint ---------------------------------------------------------
+
+
+def lint(path: Path) -> int:
+    if not path.exists():
+        print(f"ERROR: file not found: {path}", file=sys.stderr)
+        return 2
+    text = path.read_text(encoding="utf-8", errors="replace")
+
+    fm = parse_front_matter(text)
+    t, type_failures = check_type(fm)
+    if type_failures:
+        print(f"LINT FAIL: {path}\n", file=sys.stderr)
+        for f in type_failures:
+            print(f, file=sys.stderr)
+        return 1
+    if t != "consultation":
+        print(f"LINT SKIP: {path}")
+        print(f"  type={t}, lint not applicable (PROMPTING_STANDARDS.md §2)")
+        return 0
+
+    # Authored-quality checks lint only the authored wrapper (verbatim
+    # constitutional payload blanked); structural checks see the full text.
+    authored = strip_verbatim(text)
+
+    failures: list[str] = []
+    failures += check_inventory_present(text)          # structural — full text
+    failures += check_required_sections(text)          # structural — full text
+    failures += check_forbidden(authored)              # authored only
+    failures += check_validation_questions(authored)   # authored only
+    failures += check_label_coverage(authored)         # authored only
+
+    if failures:
+        print(f"LINT FAIL: {path}\n", file=sys.stderr)
+        for f in failures:
+            print(f, file=sys.stderr)
+        print(
+            "\nNeutrality cannot be judged mechanically. After fixing these,\n"
+            "send the draft to a peer Claude Code instance for the 60-second\n"
+            "neutrality review (PROMPTING_STANDARDS.md §9 step 7).",
+            file=sys.stderr,
+        )
+        return 1
+
+    counts = count_claim_labels(text)
+    print(f"LINT PASS: {path}")
+    print(f"  type=consultation, claim labels: {counts}")
+    print(
+        "  reminder: lint cannot judge framing neutrality, selection bias,\n"
+        "  or temporal violations. Send to peer instance for 60-second review,\n"
+        "  then dispatch with confidence the structure is right."
+    )
+    return 0
+
+
+def explain() -> int:
+    print(__doc__ or "")
+    print(
+        "Rules summary (canonical: /path/to/repo):\n"
+        "  §2  TYPE field gating (consultation/directive/operational/verification)\n"
+        "  §3  four required sections (Ground truth / Problem / Constraints / Objective)\n"
+        "  §4  seven forbidden patterns (opinion injection, leading framing, truncation, anchoring)\n"
+        "  §5  five claim labels (Observed / Inferred / Constraint / Unknown / Prior proposal)\n"
+        "  §6  available_context_inventory in front-matter\n"
+        "  §7  temporal rule — dispatch when uncertain, not when seeking confirmation (audit, not lint)\n"
+        "  §8  what lint catches vs what it cannot\n"
+    )
+    return 0
+
+
+def self_test() -> int:
+    """Run against test fixtures. Expects the validation-seeking fixture to FAIL."""
+    # Try canonical repo path first (works when installed at /usr/local/bin too).
+    candidates = [
+        Path("/path/to/repo"),
+        Path(__file__).resolve().parent.parent / "test_fixtures" / "dispatch_validation_seeking.md",
+    ]
+    fixture = next((c for c in candidates if c.exists()), None)
+    if fixture is None:
+        print(
+            "ERROR: acceptance fixture not found. Tried:\n  "
+            + "\n  ".join(str(c) for c in candidates),
+            file=sys.stderr,
+        )
+        return 2
+    print(f"Running lint against acceptance fixture: {fixture}")
+    print("Expected outcome: FAIL (the protocol exists to catch this pattern)\n")
+    rc = lint(fixture)
+    if rc == 1:
+        print("\nSELF-TEST PASS: lint correctly fails on the validation-seeking fixture.")
+        return 0
+    print(
+        "\nSELF-TEST FAIL: lint did NOT fail on the fixture. The lint is wrong.\n"
+        "Per PROMPTING_STANDARDS.md §8.2, this is a regression that must be fixed\n"
+        "before any dispatch.",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print(__doc__ or "", file=sys.stderr)
+        return 2
+    arg = argv[1]
+    if arg == "--explain":
+        return explain()
+    if arg == "--self-test":
+        return self_test()
+    return lint(Path(arg))
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

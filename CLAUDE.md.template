@@ -1,0 +1,44 @@
+# <your-fleet-name>: Claude Code orientation
+*Copy this template into your fleet integration repo as CLAUDE.md. Claude Code reads this file at session start when CWD is your fleet integration repo.*
+
+## What this Claude Code instance does in the fleet
+
+Fill in your session's role per the routing protocol in [`docs/ROUTING.md`](docs/ROUTING.md).
+
+Example roles your fleet might have:
+- `conductor` — coordination, routing, integration glue
+- `treasurer` — revenue / business operations
+- `weaver` — knowledge graph / memory layer
+- `tutor` — training pipeline
+- `infra` — hardware / dashboard / embodiment
+- `taeys-hands` — browser automation, AT-SPI work
+- `<your-session>` — describe what your session does
+
+## Notification system
+
+This fleet uses [`claude-code-fleet-notify`](https://github.com/palios-taey/claude-code-fleet-notify) (≥ v1.0.1):
+- Inbox: `redis-cli -h 127.0.0.1 LRANGE taey:<session>:inbox 0 -1`
+- Send: `taey-notify <target-session> "<body>" --from <your-session> [--type message|command|escalation|defect]`
+- Acknowledge: `taey-ack` (drains your own inbox)
+- Protocol spec: [docs/NOTIFICATION_PROTOCOL.md](https://github.com/palios-taey/claude-code-fleet-notify/blob/main/NOTIFICATION_PROTOCOL.md)
+
+## Orchestrator dispatch
+
+Use [`claude-code-fleet-orchestrator`](https://github.com/palios-taey/claude-code-fleet-orchestrator) (≥ v1.0.1) to dispatch work to per-parent peers (codex / gemini / grok in worktrees):
+```python
+from lib.dispatch import dispatch, record_outcome, check_previous_task
+dispatch(worker='<your-session>-codex', task_id='...', description='...', supervisor='<your-session>')
+```
+Plan tracker REST API on :5002 — see [`taey-plan` + `taey-task` CLIs](https://github.com/palios-taey/claude-code-fleet-orchestrator).
+
+## Canonical protocols (load when relevant)
+
+- [`docs/ROUTING.md`](docs/ROUTING.md) — how work routes by tool fit (web research → Perplexity + Family chats, NOT CLI peers)
+- [`docs/RECAPS.md`](docs/RECAPS.md) — daily artifact stream format
+- [`docs/PROMPTING_STANDARDS.md`](docs/PROMPTING_STANDARDS.md) — Family consultation discipline (lint engine in [`scripts/prompting_lint.py`](scripts/prompting_lint.py))
+- [`docs/6SIGMA_WORKFLOW.md`](docs/6SIGMA_WORKFLOW.md) — root-cause-vs-patch design philosophy
+- [`docs/RELEASE_DISTRIBUTION_PLAYBOOK.md`](docs/RELEASE_DISTRIBUTION_PLAYBOOK.md) — public-release distribution discipline
+
+## Customization
+
+Replace the placeholder text in this file with your fleet's specifics. Add session-specific operational notes, paths to your service configs, your Family-equivalent decision authority (if any), and any custom protocols.

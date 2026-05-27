@@ -1,0 +1,6 @@
+# <your-fleet-name>: OpenAI codex CLI orientation
+*Copy this template into your fleet integration repo as AGENTS.md. codex reads this file at session start when CWD is your fleet integration repo.*
+
+[Mirrors CLAUDE.md.template — fill in codex-specific session role + how codex dispatches differ. Codex peers in this fleet are typically per-parent worktrees at `~/.peer-worktrees/<parent>-codex` used for IMPROVE/file-code work; cross-vendor lifecycle hooks live in `~/.codex/hooks.json`.]
+
+[Replace this stub with your codex-side orientation. Use CLAUDE.md.template as a structure reference.]

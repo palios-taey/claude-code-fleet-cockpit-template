@@ -1,0 +1,13 @@
+# <your-fleet-name>: xAI grok-cli orientation
+*Copy this template into your fleet integration repo as GROK.md. grok-cli reads this file at session start.*
+
+[Mirrors CLAUDE.md.template — fill in grok-specific session role. Grok peers in this fleet are typically per-parent worktrees at `~/.peer-worktrees/<parent>-grok` used for VALIDATE/claim-gate work; grok-cli inherits hook configuration from `~/.claude/settings.json` automatically (verified via `grok inspect`).]
+
+[Replace this stub with your grok-side orientation. Use CLAUDE.md.template as a structure reference.]
+
+## Grok-cli quirks worth knowing
+
+- TUI renders to stderr (not stdout) — if you spawn grok in a tmux pane, do NOT redirect stderr to a file or the TUI will be invisible.
+- Boots to a modal session menu (New worktree / Resume session / Quit) — your bootstrap script needs to send `Ctrl-S` to reach the chat REPL.
+- Submit key in input-ready mode is plain Enter, NOT Kitty CSI-u Enter (that toggles modes).
+- Daemon's full-body injection mode is required (fleet-notify v1.0.1+) because grok-cli doesn't honor `additionalContext` from prompt hooks the way Claude Code does.

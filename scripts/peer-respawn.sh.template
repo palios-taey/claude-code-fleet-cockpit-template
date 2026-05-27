@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# peer-respawn.sh — ensure peer-worker tmux sessions are alive.
+#
+# Idempotent: spawns the peer-worker tmux session if missing, no-op if
+# already present. Run from cron (every minute) or manually.
+#
+# Usage:
+#   peer-respawn.sh                 # respawn all configured peers
+#   peer-respawn.sh codex-1         # only this one
+#
+# Configuration: which peers to maintain.
+#   codex-1 → codex CLI
+#   gemini-1 disabled until task-88e7b7a1 (gemini -p hang) is resolved.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PEER_DRIVER="${SCRIPT_DIR}/peer-driver.sh"
+LOG="/tmp/peer-respawn.log"
+
+# Format: "<peer_session>:<cli>"
+# Each entry spawns TWO tmux sessions: <peer> (the CLI itself) and
+# <peer>-driver (the bash loop that reads inbox and types prompts to <peer>).
+# Driver auto-spawns its peer if missing on startup.
+# PEERS=("codex-1:codex")  # paused 2026-04-30: re-architecting per Jesse plan-mode directive
+PEERS=()
+# gemini-1 deferred until interactive UI inspected (task-88e7b7a1).
+
+# Daemon sessions: long-running python/bash processes in dedicated tmux sessions.
+# Also includes full-peer fleet sessions (codex / gemini) that run with hooks +
+# YOLO mode and participate in the canonical notification protocol identically
+# to Claude Code sessions. Driven by the same `ensure_daemon` logic.
+# Format: "<session_name>:<command>" (command runs as the tmux pane's child process)
+DAEMONS=(
+    "watchdog:${REPO_ROOT}/scripts/watchdog-launcher 2>&1 | tee -a /tmp/watchdog.log"
+    "tasks-api:cd ${REPO_ROOT} && python3 -m uvicorn conductor.tasks_api:app --host 0.0.0.0 --port 5002 2>&1 | tee -a /tmp/tasks-api.log"
+    "treasurer-hands:PYTHONPATH=/path/to/repo python3 -m treasurer.hands.daemon 2>&1 | tee -a /tmp/treasurer-hands.log"
+    "orch-watch:cd /path/to/repo && python3 scripts/orch-watch --readiness-checker /path/to/repo:check_readiness 2>&1 | tee -a /tmp/orch-watch.log"
+    "conductor-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/conductor-codex-stderr.log"
+    "conductor-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/conductor-gemini-stderr.log"
+    "weaver-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/weaver-codex-stderr.log"
+    "weaver-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/weaver-gemini-stderr.log"
+    "tutor-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/tutor-codex-stderr.log"
+    "tutor-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/tutor-gemini-stderr.log"
+    "infra-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/infra-codex-stderr.log"
+    "infra-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/infra-gemini-stderr.log"
+    "taeys-hands-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/taeys-hands-codex-stderr.log"
+    "taeys-hands-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/taeys-hands-gemini-stderr.log"
+    "treasurer-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/treasurer-codex-stderr.log"
+    "treasurer-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/treasurer-gemini-stderr.log"
+    "taey-ed-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/taey-ed-codex-stderr.log"
+    "taey-ed-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/taey-ed-gemini-stderr.log"
+    "x-claude-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/x-claude-codex-stderr.log"
+    "x-claude-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/x-claude-gemini-stderr.log"
+    "hunter-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/hunter-codex-stderr.log"
+    "hunter-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/hunter-gemini-stderr.log"
+    "conductor-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "weaver-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "tutor-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "infra-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "taeys-hands-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "treasurer-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "taey-ed-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "x-claude-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "hunter-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+)
+
+ensure_peer() {
+    # Ensure the DRIVER session exists. Driver auto-spawns its peer CLI
+    # session on startup. We only respawn the driver here; the driver
+    # handles its peer.
+    local entry="$1"
+    local sess="${entry%%:*}"
+    local cli="${entry##*:}"
+    local driver_sess="${sess}-driver"
+
+    if tmux has-session -t "=$driver_sess" 2>/dev/null; then
+        return 0
+    fi
+
+    echo "$(date -Iseconds) RESPAWN driver $driver_sess (peer=$sess cli=$cli)" >> "$LOG"
+    tmux new-session -d -s "$driver_sess" -c /path/to/repo "$PEER_DRIVER $sess $cli"
+}
+
+ensure_daemon() {
+    local entry="$1"
+    local sess="${entry%%:*}"
+    local cmd="${entry#*:}"
+
+    if tmux has-session -t "=$sess" 2>/dev/null; then
+        return 0
+    fi
+
+    echo "$(date -Iseconds) RESPAWN daemon $sess" >> "$LOG"
+    tmux new-session -d -s "$sess" -c /path/to/repo "bash -c '$cmd'"
+
+    # Bootstrap peer sessions (codex/gemini) so their first AfterAgent
+    # fires and idle=1 gets set. Without this the notify-daemon never
+    # delivers queued dispatches because it only injects when idle=1.
+    # Send a tiny "ready" prompt + Kitty CSI-u Enter (Claude Code Ink
+    # TUI submit). Spawn-time dispatch arrives later via the normal
+    # daemon path.
+    #
+    # Also sync the peer's worktree to its parent's HEAD + refresh
+    # GitNexus index, so the peer boots with current canonical state
+    # (not stale branch state from initial worktree creation).
+    case "$sess" in
+        *-codex|*-gemini|*-grok)
+            (
+                # Pre-bootstrap: sync worktree + re-index BEFORE the peer
+                # boots so any first-prompt GitNexus calls see current
+                # state. Runs in the background subshell to not block
+                # the rest of peer-respawn.
+                "${SCRIPT_DIR}/sync_peer_worktrees.sh" 2>/dev/null
+                "${SCRIPT_DIR}/gitnexus_keepalive.sh" 2>/dev/null
+
+                sleep 12  # let CLI boot to welcome screen
+                # grok-cli boots to a session menu (New worktree / Resume / Quit);
+                # press Ctrl-S to select Resume Session and reach the chat REPL.
+                # codex/gemini land directly at the prompt.
+                if [[ "$sess" == *-grok ]]; then
+                    tmux send-keys -t "$sess" C-s 2>/dev/null
+                    sleep 2
+                fi
+                tmux send-keys -t "$sess" "ready" 2>/dev/null
+                sleep 0.3
+                tmux send-keys -t "$sess" -H 1b 5b 31 33 75 2>/dev/null
+                echo "$(date -Iseconds) BOOTSTRAP $sess (synced + indexed)" >> "$LOG"
+            ) &
+            ;;
+    esac
+}
+
+if [ $# -eq 1 ]; then
+    target="$1"
+    for entry in "${PEERS[@]}"; do
+        if [ "${entry%%:*}" = "$target" ]; then
+            ensure_peer "$entry"
+            exit 0
+        fi
+    done
+    for entry in "${DAEMONS[@]}"; do
+        if [ "${entry%%:*}" = "$target" ]; then
+            ensure_daemon "$entry"
+            exit 0
+        fi
+    done
+    echo "ERROR: unknown target $target." >&2
+    exit 1
+fi
+
+for entry in "${PEERS[@]}"; do
+    ensure_peer "$entry"
+done
+for entry in "${DAEMONS[@]}"; do
+    ensure_daemon "$entry"
+done

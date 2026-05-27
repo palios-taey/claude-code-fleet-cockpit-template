@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# sync_peer_worktrees.sh — bring each peer worktree onto its parent repo's
+# current HEAD so peers see CANONICAL state (not whatever stale branch
+# they were initialized on).
+#
+# Strategy: for each peer worktree, look up the parent repo from a mapping,
+# determine the parent's current branch, and reset the peer worktree to
+# match. Preserves the worktree mechanism (write isolation via peer/<name>
+# branch when commits happen) but eliminates read-side branch drift.
+#
+# Safe to run repeatedly. Logs to /tmp/sync-peer-worktrees.log.
+#
+# Per Jesse 2026-05-15: peers should have access to everything; the
+# original worktree convention was over-isolating reads.
+
+set -uo pipefail
+
+LOG=/tmp/sync-peer-worktrees.log
+exec >> "$LOG" 2>&1
+
+echo "=== $(date -Iseconds) sync run ==="
+
+# peer-worktree-name -> parent-repo-path
+declare -A PARENT_OF=(
+    [conductor-codex]=/path/to/repo
+    [conductor-gemini]=/path/to/repo
+    [weaver-codex]=/path/to/repo
+    [weaver-gemini]=/path/to/repo
+    [tutor-codex]=/path/to/repo
+    [tutor-gemini]=/path/to/repo
+    [infra-codex]=/path/to/repo
+    [infra-gemini]=/path/to/repo
+    [taeys-hands-codex]=/path/to/repo
+    [taeys-hands-gemini]=/path/to/repo
+    [treasurer-codex]=/path/to/repo
+    [treasurer-gemini]=/path/to/repo
+    [taey-ed-codex]=/path/to/repo
+    [taey-ed-gemini]=/path/to/repo
+    [x-claude-codex]=/path/to/repo
+    [x-claude-gemini]=/path/to/repo
+    [hunter-codex]=/path/to/repo
+    [hunter-gemini]=/path/to/repo
+    [conductor-grok]=/path/to/repo
+    [weaver-grok]=/path/to/repo
+    [tutor-grok]=/path/to/repo
+    [infra-grok]=/path/to/repo
+    [taeys-hands-grok]=/path/to/repo
+    [treasurer-grok]=/path/to/repo
+    [taey-ed-grok]=/path/to/repo
+    [x-claude-grok]=/path/to/repo
+    [hunter-grok]=/path/to/repo
+)
+
+for peer in "${!PARENT_OF[@]}"; do
+    parent="${PARENT_OF[$peer]}"
+    worktree="/path/to/repo$peer"
+
+    [ ! -d "$worktree" ] && { echo "  [$peer] worktree missing — skip"; continue; }
+    [ ! -d "$parent" ]   && { echo "  [$peer] parent $parent missing — skip"; continue; }
+
+    parent_branch=$(git -C "$parent" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    parent_head=$(git -C "$parent" rev-parse HEAD 2>/dev/null)
+    worktree_head=$(git -C "$worktree" rev-parse HEAD 2>/dev/null)
+
+    if [ "$parent_head" = "$worktree_head" ]; then
+        echo "  [$peer] already at parent HEAD $parent_head — skip"
+        continue
+    fi
+
+    # Hard reset peer branch to parent's HEAD. Any peer commits land in reflog
+    # (not destroyed, recoverable via git reflog if needed). For the read-side
+    # use case (GitNexus, surveys, audits), this is what we want.
+    echo "  [$peer] sync $worktree_head → $parent_head ($parent_branch)"
+    git -C "$worktree" reset --hard "$parent_head" 2>&1 | tail -2
+done
+
+echo

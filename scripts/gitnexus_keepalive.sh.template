@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# GitNexus keepalive — walk all known indexed paths, re-analyze on staleness.
+#
+# Triggered:
+#   - cron every 10min (catches external commits, branch updates, fetches)
+#   - peer-respawn.sh after each peer spawn (catches first-boot indexing)
+#   - manually any time
+#
+# Per Jesse 2026-05-15: indexing must stay current, fleet-wide.
+
+set -uo pipefail
+
+LOG=/tmp/gitnexus-keepalive.log
+exec >> "$LOG" 2>&1
+
+echo "=== $(date -Iseconds) keepalive run ==="
+
+# Canonical repos (parent sessions' working directories)
+CANONICALS=(
+    /path/to/repo
+    /path/to/repo
+    /path/to/repo
+    /path/to/repo
+    /path/to/repo
+    /path/to/repo
+)
+
+# All peer worktrees under /path/to/repo
+PEERS=()
+for d in /path/to/repo*/; do
+    [ -d "$d" ] && PEERS+=("${d%/}")
+done
+
+reanalyze_if_stale() {
+    local path="$1"
+    [ ! -d "$path/.git" ] && [ ! -e "$path/.git" ] && return
+    cd "$path" || return
+    local status_out
+    status_out=$(gitnexus status 2>&1)
+    if echo "$status_out" | grep -q "Repository not indexed"; then
+        echo "  [$path] not indexed → analyze"
+        gitnexus analyze 2>&1 | tail -3
+    elif echo "$status_out" | grep -q "stale"; then
+        echo "  [$path] stale → re-analyze"
+        gitnexus analyze 2>&1 | tail -3
+    else
+        echo "  [$path] up-to-date"
+    fi
+}
+
+for p in "${CANONICALS[@]}" "${PEERS[@]}"; do
+    reanalyze_if_stale "$p"
+done
+
+echo
