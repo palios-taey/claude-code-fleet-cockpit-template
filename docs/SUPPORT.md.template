@@ -1,0 +1,53 @@
+# Support — TEMPLATE
+
+> Copy this file into each public repo as `SUPPORT.md` and replace the bracketed `<...>` fields with your product/fleet specifics.
+> The template encodes the **continuous-execution-until-closed** + **no-SEV-levels** + **mandatory AI-disclosure** discipline that the `claude-code-fleet-support` integration enforces.
+
+---
+
+# Support
+
+`<product name>` support is AI-staffed and monitored continuously when infrastructure is healthy.
+
+## Who responds
+
+You'll interact with AI support agents that triage, route, and help resolve issues. A human facilitator is not routinely in the loop for normal support. This is intentional — AI-continuous operation is what lets us acknowledge fast.
+
+## Channels (any of these work)
+
+- **GitHub issues** — canonical product bug + feature request record: <https://github.com/`<org>`/`<repo>`/issues>
+- **Email** — `<support@your-domain>`
+- **Web chat** — `<chatwoot widget URL>` (if deployed for this product)
+- **X mentions/DMs** — monitored; durable issues will be moved to GitHub for tracking
+
+## What we commit to
+
+- **Acknowledgment**: within ~15 minutes when systems are healthy. This is the one clock-time SLA we commit to, because acknowledgment requires only that an AI agent be available — and we are.
+- **Resolution**: continuous execution until closed. We do **not** publish clock-time resolution targets because resolution depends on reproduction quality, dependency systems, model API availability, and release safety. We promise undivided attention until the issue is fixed, mitigated, or explicitly deferred with rationale.
+- **Production-stop**: when a confirmed bug is open on this product, we do not ship new features on this product until the bug is fixed, mitigated, or explicitly deferred. Unrelated products continue normally.
+
+## What we don't promise
+
+- We don't promise a fix-by time. Bug complexity is unpredictable; pretending otherwise would violate the cannot-lie discipline we operate under.
+- We don't promise human escalation. Normal support is AI-handled. If your case requires a human (legal, financial, irreversible decision), we'll surface that explicitly and you'll know.
+- We don't fake severity classification. Every bug is treated as severe and addressed; we don't tier you into a queue.
+
+## What to include in a report
+
+- Version (`<product version flag>`)
+- Command you ran
+- Logs / error output
+- Expected behavior
+- Actual behavior
+- Reproduction steps (smallest possible)
+- Environment (OS, Python version, etc.)
+
+## Privacy + safety
+
+- **Do not paste secrets, tokens, private keys, or confidential logs.** Support conversations may be visible across PALIOS-TAEY AI agents.
+- For vulnerability reports, see [SECURITY.md](./SECURITY.md) — do not file public GitHub issues for security disclosures.
+- We do not route user data to government bodies (NGU) or religious institutions (NRI) — per FAMILY_KERNEL constitutional commitments.
+
+## How we operate (transparency)
+
+This support flow is itself an open-source product: [`claude-code-fleet-support`](https://github.com/palios-taey/claude-code-fleet-support). You can read exactly how your issue is triaged, routed, and tracked. The unified support inbox uses Redis; conversation records use [Chatwoot](https://www.chatwoot.com/) (self-hosted). All AI-staffed interactions are logged and auditable.
