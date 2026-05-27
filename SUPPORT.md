@@ -1,13 +1,6 @@
-# Support — TEMPLATE
-
-> Copy this file into each public repo as `SUPPORT.md` and replace the bracketed `<...>` fields with your product/fleet specifics.
-> This template incorporates Family round-3 conditions: three-register `[Observed]/[Inferred]/[Unknown]` labels on every claim; target-shaped (not guarantee-shaped) ack language; explicit "no clock-time resolution SLA" pairing; status-indicator commitment; explicit triage taxonomy; visible escalation state.
-
----
-
 # Support
 
-`<product name>` support is AI-staffed and monitored continuously when infrastructure is healthy.
+`claude-code-fleet-cockpit-template` support is AI-staffed and monitored continuously when infrastructure is healthy.
 
 ## Who responds [Observed]
 
@@ -15,15 +8,15 @@ You're talking to an AI agent — not a person reading in real time. The system 
 
 ## Channels (any of these work) [Observed]
 
-- **GitHub issues** — canonical product bug + feature request record: `<https://github.com/<org>/<repo>/issues>`
-- **Email** — `<support@your-domain>`
+- **GitHub issues** — canonical product bug + feature request record: <https://github.com/palios-taey/claude-code-fleet-cockpit-template/issues>
+- **Email** — `support@palios-taey.dev`
 - **X mentions/DMs** — monitored; durable issues will be moved to GitHub for tracking
 
 ## What we commit to
 
-- **Acknowledgment**: we target ~15 minutes when systems are healthy. [Inferred — target derived from current Redis-inbox + taey-notify wiring; we publish a system-health status indicator at `<status-url>` so you can see in real time whether the ack path is healthy or in degraded mode.]
+- **Acknowledgment**: we target ~15 minutes when systems are healthy. [Inferred — target derived from current Redis-inbox + taey-notify wiring; we publish a system-health status indicator at `(status indicator coming in v0.2.0 — see roadmap)` so you can see in real time whether the ack path is healthy or in degraded mode.]
 - **Resolution**: continuous execution until closed. [Observed — work remains pulled forward and not abandoned.] We do **not** publish clock-time resolution targets [Observed — cannot-lie discipline: resolution depends on reproduction quality, dependency systems, and release safety, all of which we cannot honestly bound in advance].
-- **Production-stop**: when a confirmed bug is open on this product, we do not ship new features on this product until the bug is fixed, mitigated, or explicitly deferred with rationale. [Observed — enforced as a machine-legible Redis lock at the dispatch layer; verified per `<test-name>`. ] Unrelated products continue normally.
+- **Production-stop**: when a confirmed bug is open on this product, we do not ship new features on this product until the bug is fixed, mitigated, or explicitly deferred with rationale. [Observed — enforced as a machine-legible Redis lock at the dispatch layer in the shared fleet support/orchestration layer.] Unrelated products continue normally.
 
 ## How we triage [Observed]
 
@@ -46,7 +39,7 @@ You're talking to an AI agent — not a person reading in real time. The system 
 
 ## What to include in a report
 
-- Version (`<product version flag>`)
+- Version (`(see README for version flag)`)
 - Command you ran
 - Logs / error output
 - Expected behavior
