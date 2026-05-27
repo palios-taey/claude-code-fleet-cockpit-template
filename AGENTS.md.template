@@ -1,6 +1,13 @@
 # <your-fleet-name>: OpenAI codex CLI orientation
 *Copy this template into your fleet integration repo as AGENTS.md. codex reads this file at session start when CWD is your fleet integration repo.*
 
-[Mirrors CLAUDE.md.template — fill in codex-specific session role + how codex dispatches differ. Codex peers in this fleet are typically per-parent worktrees at `~/.peer-worktrees/<parent>-codex` used for IMPROVE/file-code work; cross-vendor lifecycle hooks live in `~/.codex/hooks.json`.]
+Codex peers in this fleet are typically per-parent worktrees at `~/.peer-worktrees/<parent>-codex` used for IMPROVE/file-code work. Cross-vendor lifecycle hooks live in `~/.codex/hooks.json`.
 
-[Replace this stub with your codex-side orientation. Use CLAUDE.md.template as a structure reference.]
+Default operating contract:
+- When dispatched on a task inside an approved scope, do not ask permission for in-scope edits, file moves, or commits.
+- Do not ping the supervisor mid-loop for status; the supervisor wakes on structured outcomes only.
+- Record progress and completion via `record_outcome()`; the Stop hook is the canonical `done` signal.
+
+This default is adapted from @kinnnparksung's [/letsgo-skill](https://github.com/Clarkky1/letsgo-skill), combined with the canonical `record_outcome()` + Stop-hook flow in `claude-code-fleet-orchestrator` and `claude-code-fleet-notify`. If your fleet wants a different approval contract, replace this section intentionally.
+
+Add the rest of your codex-side orientation below this point: session role, working directories, dispatch norms, verification rules, and any codex-specific deviations from the fleet-wide Claude template.

@@ -15,6 +15,18 @@ This template gives you what those four products *don't* — the operating disci
 - **Fleet-glue scripts** that wire the released products into a working fleet (per-parent peer respawn, worktree sync, GitNexus index keepalive, prompting standards lint).
 - **Cron registry example** for `orch-cron` recurring tasks with file-tracked state + SHA-256 hash-on-fire audit.
 
+## Default operating contract
+
+When dispatched on a task inside an approved scope, the worker:
+
+- Does not ask permission for in-scope edits, file moves, or commits.
+- Does not ping the supervisor mid-loop for status; the supervisor wakes on structured outcomes only.
+- Records progress and completion via `record_outcome()`; the Stop hook is the canonical `done` signal.
+
+This contract eliminates routine approval churn. Workers that re-implement their own permission patterns can disable it; the default is autonomous-within-scope.
+
+Pattern adapted from @kinnnparksung's [/letsgo-skill](https://github.com/Clarkky1/letsgo-skill), combined with the canonical `record_outcome()` + Stop-hook flow documented in [`claude-code-fleet-orchestrator`](https://github.com/palios-taey/claude-code-fleet-orchestrator) and [`claude-code-fleet-notify`](https://github.com/palios-taey/claude-code-fleet-notify).
+
 ## What's in this repo
 
 ```
@@ -68,6 +80,17 @@ echo '* * * * * /usr/bin/python3 /home/<you>/claude-code-fleet-orchestrator/scri
 # 7. Start orch-watch (one per machine)
 python3 /home/<you>/claude-code-fleet-orchestrator/scripts/orch-watch --readiness-checker /home/<you>/claude-code-fleet-orchestrator/lib/plan_readiness.py:check_readiness &
 ```
+
+## Unattended runs
+
+For overnight or long-horizon fleet runs:
+
+1. Install [`claude-code-api-watchdog`](https://github.com/palios-taey/claude-code-api-watchdog) to catch transient API stalls and recover with `Continue`. Dry-run first: `python3 watchdog.py --sessions mybot,worker1,worker2 --dry-run`.
+2. Install [`mcp-reconnect`](https://github.com/palios-taey/mcp-reconnect) for `/mcp` menu reconnection after transient failures. If you invoke it from inside Claude Code, detach it: `nohup mcp-reconnect --delay 10 &>/dev/null & disown`.
+3. Use named tmux sessions for each worker so the supervisor and resilience tools can address them by name.
+4. Install the Stop hook and have workers call `record_outcome()` before stopping so the supervisor wakes on structured outcomes instead of polling.
+
+Pattern adapted from @kinnnparksung's [/letsgo-skill](https://github.com/Clarkky1/letsgo-skill), combined with the canonical invocation details from [`claude-code-api-watchdog`](https://github.com/palios-taey/claude-code-api-watchdog) and [`mcp-reconnect`](https://github.com/palios-taey/mcp-reconnect).
 
 ## Pattern, not framework
 
