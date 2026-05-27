@@ -1,0 +1,18 @@
+{
+  "_doc": "Fleet recurring-trigger registry — read by /path/to/claude-code-fleet-orchestrator/scripts/orch-cron via system cron every minute. Edit this file to add/remove/modify scheduled wakes; prompt content lives in prompt_file (edit that file to change prompt content without redeploy). hours are wall-clock in tz; minute offsets stagger sessions so they never fire same-instant. state_file is OPTIONAL — if set, each fire writes an append-only JSONL audit record + a SHA-256 hash sidecar (.meta.json) for tamper evidence. status is informational ({active,paused,retired}); enabled=true/false gates actual fires.",
+  "triggers": [
+    {
+      "_comment": "Example: a posting-cycle session that fires 8x daily at :09 ET, with state_file audit + status=active",
+      "id": "<your-cycle-id>",
+      "session": "<your-tmux-session-name>",
+      "tz": "America/New_York",
+      "minute": 9,
+      "hours": [8, 10, 12, 14, 16, 18, 20, 22],
+      "prompt_file": "/path/to/wake-prompt.txt",
+      "state_file": "/var/log/orch/<session>-cycle.jsonl",
+      "enabled": true,
+      "status": "active",
+      "note": "Free-form description: what this cycle does, what changed, who owns it"
+    }
+  ]
+}
