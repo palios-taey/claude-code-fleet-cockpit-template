@@ -42,3 +42,10 @@ Plan tracker REST API on :5002 — see [`taey-plan` + `taey-task` CLIs](https://
 ## Customization
 
 Replace the placeholder text in this file with your fleet's specifics. Add session-specific operational notes, paths to your service configs, your Family-equivalent decision authority (if any), and any custom protocols.
+
+Default operating contract:
+- When dispatched on a task inside an approved scope, do not ask permission for in-scope edits, file moves, or commits.
+- Do not ping the supervisor mid-loop for status; the supervisor wakes on structured outcomes only.
+- Record progress and completion via `record_outcome()`; the Stop hook is the canonical `done` signal.
+
+This default is adapted from @kinnnparksung's [/letsgo-skill](https://github.com/Clarkky1/letsgo-skill), combined with the canonical `record_outcome()` + Stop-hook flow in `claude-code-fleet-orchestrator` and `claude-code-fleet-notify`. If your fleet uses a different approval contract, replace this section explicitly rather than drifting by accident.
