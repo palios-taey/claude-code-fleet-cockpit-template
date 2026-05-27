@@ -2,13 +2,17 @@
 
 > **The shared operating spine for teams running a multi-CLI AI fleet on tmux.** Clone this when you need the crew to act as one system, not just when you need an individual component.
 
-The four released `claude-code-fleet-*` products give you the parts:
+The five released `claude-code-*` products give you the parts:
 - [`claude-code-api-watchdog`](https://github.com/palios-taey/claude-code-api-watchdog) — keep an unattended Claude Code session alive across transient API errors
 - [`mcp-reconnect`](https://github.com/palios-taey/mcp-reconnect) — auto-reconnect MCP servers via tmux send-keys + verification
 - [`claude-code-fleet-notify`](https://github.com/palios-taey/claude-code-fleet-notify) — Redis-backed inbox + universal Stop+notify across Claude Code / Codex / Gemini / Grok
 - [`claude-code-fleet-orchestrator`](https://github.com/palios-taey/claude-code-fleet-orchestrator) — supervisor↔worker dispatch + plan tracker + recurring runner + event-driven watchloop
+- [`claude-code-fleet-support`](https://github.com/palios-taey/claude-code-fleet-support) — AI-native multi-channel support spine: GitHub webhook intake + Redis unified inbox + deterministic thread_id + bug-lock + first-contact AI disclosure
 
-This template gives you what those four products *don't* — the operating discipline that makes the crew act like one system:
+Plus one third-party dependency we adopt:
+- [GitNexus](https://github.com/abhigyanpatwari/GitNexus) (npm `gitnexus`, MCP server) — code-intelligence graph; the 6SIGMA workflow + impact-analysis-before-edits discipline both depend on it being installed + the keepalive script keeping indices fresh.
+
+This template gives you what those products *don't* — the operating discipline that makes the crew act like one system:
 
 - **6 canonical protocol docs** that define how the fleet routes work, captures recaps, audits actions, dispatches Family consultations, runs Six Sigma root-cause discipline, and ships public distribution.
 - **Per-CLI orientation files** (`CLAUDE.md` / `AGENTS.md` / `GROK.md`) read by Claude Code / Codex / Grok at session start so each peer boots fleet-aware instead of blind.
@@ -50,12 +54,13 @@ recurring_triggers.json.example  — cron registry skeleton (used by claude-code
 ## Quickstart for adopters
 
 ```bash
-# 1. Clone alongside the 4 released products (your local layout is your call)
+# 1. Clone alongside the 5 released products (your local layout is your call)
 cd ~/
 git clone https://github.com/palios-taey/claude-code-fleet-notify.git
 git clone https://github.com/palios-taey/claude-code-fleet-orchestrator.git
 git clone https://github.com/palios-taey/claude-code-api-watchdog.git
 git clone https://github.com/palios-taey/mcp-reconnect.git
+git clone https://github.com/palios-taey/claude-code-fleet-support.git
 git clone https://github.com/palios-taey/claude-code-fleet-cockpit-template.git my-fleet
 
 # 2. Install the released products' hooks + daemons (claude-code-fleet-notify install handles all CLI variants)
@@ -64,10 +69,21 @@ cd claude-code-fleet-notify && sudo make install && bash scripts/install-hooks.s
 # 3. Enable Redis keyspace notifications (orch-watch dependency)
 redis-cli CONFIG SET notify-keyspace-events 'Kgl$' && redis-cli CONFIG REWRITE
 
-# 4. Configure your fleet — copy the templates + edit for your sessions + paths
+# 4. Install GitNexus — code-intelligence MCP used by the 6SIGMA_WORKFLOW.md discipline
+#    (third-party OSS we adopt: https://github.com/abhigyanpatwari/GitNexus)
+npm install -g gitnexus
+#    Wire as an MCP server for each CLI you use (codex / gemini / claude code):
+#    For codex:   add to ~/.codex/config.toml under [mcp_servers.gitnexus]
+#    For gemini:  add to ~/.gemini/settings.json under "mcpServers.gitnexus"
+#    For claude:  add to ~/.claude/settings.json under "mcp.servers.gitnexus"
+#    Reference command: gitnexus mcp
+#    See https://github.com/abhigyanpatwari/GitNexus#readme for per-CLI install details
+
+# 5. Configure your fleet — copy the templates + edit for your sessions + paths
 cd ~/my-fleet
 cp scripts/peer-respawn.sh.template scripts/peer-respawn.sh   # edit DAEMONS list for your sessions
 cp scripts/prompting_lint.py.template scripts/prompting_lint.py
+cp scripts/gitnexus_keepalive.sh.template scripts/gitnexus_keepalive.sh  # edit CANONICALS for your fleet's repo set
 cp recurring_triggers.json.example recurring_triggers.json    # edit triggers for your cycle cadence
 
 # 5. Write your per-CLI orientation files (CLAUDE.md / AGENTS.md / GROK.md)
