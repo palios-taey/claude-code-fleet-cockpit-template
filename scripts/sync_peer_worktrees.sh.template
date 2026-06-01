@@ -10,10 +10,23 @@
 #
 # Safe to run repeatedly. Logs to /tmp/sync-peer-worktrees.log.
 #
-# Per Jesse 2026-05-15: peers should have access to everything; the
-# original worktree convention was over-isolating reads.
+# Peers should have read access to everything; the original worktree
+# convention was over-isolating reads.
+#
+# ── TEMPLATE SETUP ─────────────────────────────────────────────────────────
+# Set FLEET_ROOT to the directory that holds your parent repos, and
+# PEER_WORKTREES_DIR to where your peer worktrees live. Then edit the
+# PARENT_OF map below to your own {parent}-{cli} -> repo-path layout.
+# There are NO defaults — both vars must be set (fail-loud).
+#
+#   export FLEET_ROOT=/path/to/your/repos
+#   export PEER_WORKTREES_DIR=/path/to/your/.peer-worktrees
+# ───────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
+
+: "${FLEET_ROOT:?Set FLEET_ROOT to the directory containing your parent repos}"
+: "${PEER_WORKTREES_DIR:?Set PEER_WORKTREES_DIR to your peer-worktrees directory}"
 
 LOG=/tmp/sync-peer-worktrees.log
 exec >> "$LOG" 2>&1
@@ -21,39 +34,20 @@ exec >> "$LOG" 2>&1
 echo "=== $(date -Iseconds) sync run ==="
 
 # peer-worktree-name -> parent-repo-path
+# Replace these example rows with your own peers. One row per {parent}-{cli}.
+# Pattern: [<parent>-<cli>]="$FLEET_ROOT/<repo-dir>"
 declare -A PARENT_OF=(
-    [conductor-codex]=/path/to/repo
-    [conductor-gemini]=/path/to/repo
-    [weaver-codex]=/path/to/repo
-    [weaver-gemini]=/path/to/repo
-    [tutor-codex]=/path/to/repo
-    [tutor-gemini]=/path/to/repo
-    [infra-codex]=/path/to/repo
-    [infra-gemini]=/path/to/repo
-    [taeys-hands-codex]=/path/to/repo
-    [taeys-hands-gemini]=/path/to/repo
-    [treasurer-codex]=/path/to/repo
-    [treasurer-gemini]=/path/to/repo
-    [taey-ed-codex]=/path/to/repo
-    [taey-ed-gemini]=/path/to/repo
-    [x-claude-codex]=/path/to/repo
-    [x-claude-gemini]=/path/to/repo
-    [hunter-codex]=/path/to/repo
-    [hunter-gemini]=/path/to/repo
-    [conductor-grok]=/path/to/repo
-    [weaver-grok]=/path/to/repo
-    [tutor-grok]=/path/to/repo
-    [infra-grok]=/path/to/repo
-    [taeys-hands-grok]=/path/to/repo
-    [treasurer-grok]=/path/to/repo
-    [taey-ed-grok]=/path/to/repo
-    [x-claude-grok]=/path/to/repo
-    [hunter-grok]=/path/to/repo
+    [example-repo-codex]="$FLEET_ROOT/example-repo"
+    [example-repo-gemini]="$FLEET_ROOT/example-repo"
+    [example-repo-grok]="$FLEET_ROOT/example-repo"
+    [other-repo-codex]="$FLEET_ROOT/other-repo"
+    [other-repo-gemini]="$FLEET_ROOT/other-repo"
+    [other-repo-grok]="$FLEET_ROOT/other-repo"
 )
 
 for peer in "${!PARENT_OF[@]}"; do
     parent="${PARENT_OF[$peer]}"
-    worktree="/path/to/repo$peer"
+    worktree="$PEER_WORKTREES_DIR/$peer"
 
     [ ! -d "$worktree" ] && { echo "  [$peer] worktree missing — skip"; continue; }
     [ ! -d "$parent" ]   && { echo "  [$peer] parent $parent missing — skip"; continue; }

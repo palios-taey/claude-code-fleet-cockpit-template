@@ -39,7 +39,7 @@ Both shapes can produce identical runtime behavior. Only the root-cause shape le
 **Jesse directive 2026-05-25.** Step 3 (MEASURE + ANALYZE) **requires** the `gitnexus_query` / `gitnexus_context` / `gitnexus_impact` / `gitnexus_detect_changes` / `gitnexus_rename` / `gitnexus_cypher` MCP tools. The CLI (`npx gitnexus analyze | status | augment | wiki | serve`) is for index management; the MEASURE work happens via MCP.
 
 - **Every fleet session must have GitNexus MCP wired and resolving on first prompt.** If `mcp__gitnexus__*` tools are not in your toolset, that is a **fleet-blocker** — escalate to Conductor before proceeding. Do NOT silently fall back to `git grep` for MEASURE; surface the wiring gap.
-- **Every repo a fleet session works on must be GitNexus-indexed.** Run `npx gitnexus analyze` at the repo root on first touch, and re-run after every commit. (the-conductor has a PostToolUse hook that does this automatically for `git commit`/`merge`; other repos: add the same hook or run manually.)
+- **Every repo a fleet session works on must be GitNexus-indexed.** Run `npx gitnexus analyze` at the repo root on first touch, and re-run after every commit. (Wire a PostToolUse hook that does this automatically for `git commit`/`merge`; for repos without the hook, run it manually.)
 - Conductor owns the fleet-wide wiring (`.mcp.json` per repo + Claude Code project overrides, and the per-CLI configs for codex / gemini / grok). If a wiring gap surfaces, ping conductor.
 
 ---

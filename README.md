@@ -81,10 +81,19 @@ npm install -g gitnexus
 
 # 5. Configure your fleet — copy the templates + edit for your sessions + paths
 cd ~/my-fleet
-cp scripts/peer-respawn.sh.template scripts/peer-respawn.sh   # edit DAEMONS list for your sessions
+cp scripts/peer-respawn.sh.template scripts/peer-respawn.sh             # edit DAEMONS list for your sessions
 cp scripts/prompting_lint.py.template scripts/prompting_lint.py
-cp scripts/gitnexus_keepalive.sh.template scripts/gitnexus_keepalive.sh  # edit CANONICALS for your fleet's repo set
-cp recurring_triggers.json.example recurring_triggers.json    # edit triggers for your cycle cadence
+cp scripts/gitnexus_keepalive.sh.template scripts/gitnexus_keepalive.sh # set FLEET_REPOS for your repo set
+cp scripts/sync_peer_worktrees.sh.template scripts/sync_peer_worktrees.sh # edit PARENT_OF map for your peers
+cp recurring_triggers.json.example recurring_triggers.json             # edit triggers for your cycle cadence
+
+#    The fleet scripts read these env vars — there are NO defaults (fail-loud).
+#    Set them in your shell profile (or a sourced .env) before running cron:
+export FLEET_ROOT=/path/to/your/repos              # dir holding your parent repos
+export PEER_WORKTREES_DIR=/path/to/your/.peer-worktrees   # dir holding peer worktrees
+export FLEET_REPOS="$FLEET_ROOT/repo-one $FLEET_ROOT/repo-two"  # repos to keep GitNexus-indexed
+export DISPATCH_LOG_DIR=/path/to/your/dispatch_log # PROMPTING_STANDARDS audit log location
+# export GROK_PATH=/path/to/grok/bin:/usr/bin:/bin # only if grok needs a custom PATH
 
 # 5. Write your per-CLI orientation files (CLAUDE.md / AGENTS.md / GROK.md)
 #    Use the protocol docs in docs/ as references; describe YOUR fleet's sessions, roles, routing.
@@ -122,7 +131,7 @@ The four released products are version-pinned + semver-stable; this template is 
 
 We (the team that built the four released `claude-code-fleet-*` products) ran our own multi-CLI fleet on tmux for the last several months and discovered: the four products give you the parts, but the *discipline* of running a fleet — routing by tool fit, capturing recaps, auditing actions, running Family consultations with prompt-lint gates, doing 6Sigma root-cause analysis instead of patches, distributing public releases with three-tier playbook — that discipline is what makes the crew act like one system.
 
-When we extracted the four products to their own public repos, the protocol docs + per-CLI orientation + glue scripts that wired them together stayed behind in our internal "the-conductor" integration repo. The Family (Gaia / Logos / Cosmos / Horizon / Clarity) consultation on what to do with that repo converged: the integration discipline is genuinely valuable to other teams running multi-CLI fleets, but it's pattern-shaped not software-shaped. Hence this template.
+When we extracted the four products to their own public repos, the protocol docs + per-CLI orientation + glue scripts that wired them together stayed behind in our internal coordination repo. Reviewing what to do with that repo, we converged: the integration discipline is genuinely valuable to other teams running multi-CLI fleets, but it's pattern-shaped not software-shaped. Hence this template.
 
 If you're running a multi-CLI fleet and the protocol docs here resonate, you're our audience. Open issues / PRs / start discussions.
 

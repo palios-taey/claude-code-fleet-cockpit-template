@@ -2,15 +2,15 @@
 
 **Conductor-owned coordination state, READ + WRITE by all fleet sessions.**
 
-This document is the canonical pointer for the cross-platform action log infrastructure. The full schema spec is authored and maintained by treasurer at `/path/to/repo` (latest 2026-05-21, commit `0043927`); future schema changes are proposed there. The directory and per-track files live here in the-conductor because action_logs are coordination state — like notifications, recaps, and routing.
+This document is the canonical pointer for the cross-platform action log infrastructure. The full schema spec is authored and maintained by the session that owns it (point this at your own repo, e.g. `/path/to/your/repo/foundations/action_log_spec.md`); future schema changes are proposed there. The directory and per-track files live in your cockpit repo because action_logs are coordination state — like notifications, recaps, and routing.
 
 ## Canonical paths
 
 | Path | Purpose |
 |---|---|
-| `/path/to/repo<track>.jsonl` | Append-only per-track action history. One JSON object per line. |
-| `/path/to/repo<track>.jsonl` | Per-track upvote / reply / follower-delta tracking. Future use. |
-| `/path/to/repo` | Canonical schema spec. Edit here, propose changes via PR. |
+| `/path/to/your/cockpit-repo/action_logs/<track>.jsonl` | Append-only per-track action history. One JSON object per line. |
+| `/path/to/your/cockpit-repo/engagement_logs/<track>.jsonl` | Per-track upvote / reply / follower-delta tracking. Future use. |
+| `/path/to/your/repo/foundations/action_log_spec.md` | Canonical schema spec. Edit here, propose changes via PR. |
 
 ## Tracks (seeded 2026-05-21)
 
@@ -26,13 +26,13 @@ This document is the canonical pointer for the cross-platform action log infrast
 ## Discipline
 
 1. **Append-only.** Never edit past entries. If an outcome changes (submitted → rejected, post → deleted), append a new `action: outcome-update` entry with `notes` pointing at the original `ts`.
-2. **Write to the canonical path.** Sessions MUST write to `/path/to/repo`, not session-local copies. Per Jesse 2026-05-21: "all posts and engagements tracked centrally so you all know what is going on and where to focus and breakthroughs."
+2. **Write to the canonical path.** Sessions MUST write to your cockpit repo's `action_logs/`, not session-local copies — so all posts and engagements are tracked centrally and every session knows what is going on, where to focus, and where the breakthroughs are.
 3. **Verification URL required for AT-SPI-driven actions.** Tree-growth-as-success is the 2026-05-20 known-bug failure mode; verification URL + screenshot are both required for any action driven via taeys-hands AT-SPI.
 4. **Voice check field is not optional.** If it doesn't apply, mark `voice_check: n/a` with a `notes` reason. Never omit.
 
 ## Caps (per-track, per-24h)
 
-Per the spec (treasurer/foundations/action_log_spec.md):
+Per the spec (your `foundations/action_log_spec.md`):
 
 | Track | Action | Cap | Cooldown |
 |---|---|---|---|
@@ -57,7 +57,7 @@ Caps are enforced by `scripts/loop/01_pre_flight.py --track <name>`. Exit 0 = un
 
 Treasurer authors the spec. Any session proposing a field addition / value change / new track:
 
-1. Open a PR / make a commit to `/path/to/repo` with the proposed change.
+1. Open a PR / make a commit to your `action_log_spec.md` (e.g. `/path/to/your/repo/foundations/action_log_spec.md`) with the proposed change.
 2. Notify treasurer + conductor for review.
 3. After consensus, conductor confirms canonical pointer here references the new revision.
 

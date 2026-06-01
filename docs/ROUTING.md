@@ -13,7 +13,7 @@
 >
 > Earlier versions of this doc routed "MEASURE / research" to gemini-1 without distinguishing web-bound from local-bound research. That was also wrong — gemini-CLI has no live web access in its sandboxed worktree and will return output that fits a loose spec without verifying real-world signals. Web research goes to Perplexity / Family chats.
 
-> **Status 2026-05-25: codex-1 + grok-1 OPERATIONAL** (only for conductor's use), gemini-1 OPERATIONAL with sandbox caveats. Per-parent peer worktrees at `/path/to/repo{parent}-{codex|gemini|grok}` also exist for parent-scoped peer dispatch — 9 parents × 3 CLIs = 27 worktrees. The codex-1 / gemini-1 / grok-1 named peers below are the *centralized* dispatch lane (general-purpose, conductor-side); per-parent worktrees are the *scoped* lane (parent-owned, used by parent's own dispatch logic). Both consume MCP via per-CLI globals (~/.codex/config.toml, ~/.gemini/settings.json, ~/.grok/config.toml — all three carry gitnexus per Jesse 2026-05-25 directive).
+> **Example status: codex-1 + grok-1 OPERATIONAL** (centralized lane), gemini-1 OPERATIONAL with sandbox caveats. Per-parent peer worktrees at `${PEER_WORKTREES_DIR}/{parent}-{codex|gemini|grok}` also exist for parent-scoped peer dispatch — N parents × 3 CLIs worktrees. The codex-1 / gemini-1 / grok-1 named peers below are the *centralized* dispatch lane (general-purpose, conductor-side); per-parent worktrees are the *scoped* lane (parent-owned, used by parent's own dispatch logic). Both consume MCP via per-CLI globals (~/.codex/config.toml, ~/.gemini/settings.json, ~/.grok/config.toml — all three carry gitnexus per Jesse 2026-05-25 directive).
 
 ---
 
@@ -55,7 +55,7 @@ The poll loop is the wake mechanism — codex-1 has no Claude Code hooks. There 
 
 ## What to put in the task body
 
-Codex receives the body verbatim as its prompt. Codex CLI uses its own CWD as workspace (`/path/to/repo` for codex-1 by default). Useful elements to include:
+Codex receives the body verbatim as its prompt. Codex CLI uses its own CWD as workspace (`$HOME` for codex-1 by default). Useful elements to include:
 
 - **Goal**: one sentence stating what success looks like.
 - **File paths**: absolute paths the worker should read or write.
@@ -68,18 +68,18 @@ Example of a clean dispatch:
 
 ```bash
 taey-notify codex-1 "$(cat <<'EOF'
-Add a --dry-run flag to /path/to/repo
+Add a --dry-run flag to /path/to/your/repo/scripts/scrape.py.
 
 When --dry-run is passed, the script must:
   1. Print the URLs it would scrape
   2. Skip the actual HTTP requests
   3. Exit 0
 
-Constraints: only modify upwork_scrape.py. Preserve existing behavior when --dry-run is not passed.
+Constraints: only modify scrape.py. Preserve existing behavior when --dry-run is not passed.
 
-Verify: python3 -c "import ast; ast.parse(open('/path/to/repo').read())"
+Verify: python3 -c "import ast; ast.parse(open('/path/to/your/repo/scripts/scrape.py').read())"
 
-Commit at /path/to/repo with message:
+Commit at /path/to/your/repo with message:
 "feat(scraper): --dry-run flag for upwork_scrape.py"
 
 Return: file/line of change + commit hash.
@@ -202,6 +202,6 @@ Failure modes:
 
 ## Authority and escalation
 
-- Conductor (`/path/to/repo`) owns this routing layer.
+- Your coordinator session (in `/path/to/your/cockpit-repo`) owns this routing layer.
 - Defects, broken dispatch behavior, hung tasks: notify conductor with `--type defect` or `--type escalation`.
 - Adding a new peer worker (e.g. gemini-1 once unblocked): edit `peer-respawn.sh` PEERS list and commit.

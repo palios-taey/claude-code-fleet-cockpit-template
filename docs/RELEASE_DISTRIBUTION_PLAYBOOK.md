@@ -1,6 +1,6 @@
 # RELEASE_DISTRIBUTION_PLAYBOOK.md
 
-**Owner:** x-claude (authored). Lives in `/path/to/repo` as protocol-home alongside `NOTIFICATION_PROTOCOL` / `ROUTING` / `6SIGMA_WORKFLOW` / `PROMPTING_STANDARDS` / `RECAPS` / `ACTION_LOGS`. Fleet propagation handled by conductor once v0.1 is ratified.
+**Owner:** the session that authored it (your public-release / distribution session). Lives in your cockpit repo's `docs/` as protocol-home alongside `NOTIFICATION_PROTOCOL` / `ROUTING` / `6SIGMA_WORKFLOW` / `PROMPTING_STANDARDS` / `RECAPS` / `ACTION_LOGS`. The coordinator session handles fleet propagation once a version is ratified.
 
 **Version:** v0.1 — 2026-05-25. Worked example: `palios-taey/claude-code-api-watchdog` v0.1.0 (Surface B cycle 1).
 
@@ -54,7 +54,7 @@ This is the highest-risk tier. The "fix" we're recommending is our own repo, so 
 3. **First-person fellow-builder voice.** "Dealing with same issue, this is what we use" — not "you should try this product." Jesse's voice is what makes the difference between a peer share and an ad.
 4. **One reply per peer.** No follow-up if they don't engage. No "did you see my reply?" nudges. If they reply and want detail, give detail. If they ignore, move on.
 5. **Sub-10k follower bias.** Same as the urgency-rescue heuristic — peer engagement, not influencer-chasing. A 200-follower dev who just got bit by a 529 and is venting is the right reply target. A 50k-follower with a clean rage-tweet is not (audience is too generic, smells like trying to ride viral signal).
-6. **Cross-surface dedupe.** Both x-claude (X) and treasurer (Reddit) declare on the shared `the-conductor/action_logs/` what they've engaged so neither double-engages the same person if they're active on both surfaces.
+6. **Cross-surface dedupe.** Each surface session (e.g. an X session and a Reddit session) declares on the shared `<your-cockpit-repo>/action_logs/` what it has engaged, so neither double-engages the same person if they're active on both surfaces.
 
 ### §4.1 Target scoring framework (Grok 2026-05-26 — cross-release canonical)
 
@@ -84,8 +84,8 @@ Sort by Latest, scan top 50, verify authors via `x_user_search`, reply only to t
 When a release packet drops, publishing surfaces coordinate via the conductor `action_logs` and explicit hand-off pings — not by inference.
 
 **On packet receipt** (each surface):
-1. Read the packet at the path conductor specified.
-2. Declare on `the-conductor/action_logs/<date>_<artifact-slug>_distribution.md` which tiers + which sub-surfaces you're taking (e.g., "x-claude takes T1 announce + T2 acute-pain on X; treasurer takes T1 announce + T2 acute-pain on r/ClaudeAI + r/LocalLLaMA").
+1. Read the packet at the path the coordinator specified.
+2. Declare on `<your-cockpit-repo>/action_logs/<date>_<artifact-slug>_distribution.md` which tiers + which sub-surfaces you're taking (e.g., "X session takes T1 announce + T2 acute-pain on X; Reddit session takes T1 announce + T2 acute-pain on r/ClaudeAI + r/LocalLLaMA").
 3. Ping the other publishing surface(s) so they know what you've claimed (avoid silent overlap).
 4. Ship your tier, external-verify, recap.
 5. Update the shared `action_logs` entry with what landed where + URLs.
@@ -182,7 +182,7 @@ or inline-in-notification text per safetensors PR #774 + watchdog v0.1.0 pattern
 
 ## 9. Revision protocol
 
-v0.1 is the first codification. Revise after the 2nd and 3rd real release cycles based on what actually broke or worked. Conductor handles fleet propagation (adds the pointer to `/path/to/repo` Canonical Protocols block + per-CLI globals) once x-claude signals v0.1 is ready for adoption.
+v0.1 is the first codification. Revise after the 2nd and 3rd real release cycles based on what actually broke or worked. The coordinator handles fleet propagation (adds the pointer to your global `~/.claude/CLAUDE.md` Canonical Protocols block + per-CLI globals) once the authoring session signals a version is ready for adoption.
 
 **Known unknowns to validate in cycle 2:**
 - Does the §4 acute-pain CoI discipline scale, or does it become spam-shaped after the 2nd or 3rd release using the same surfaces?

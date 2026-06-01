@@ -9,18 +9,18 @@
 ## Path convention
 
 ```
-/path/to/repo{repo}/recaps/YYYY-MM-DD_{session}.md
+/path/to/your/{repo}/recaps/YYYY-MM-DD_{session}.md
 ```
+
+Each session writes recaps into the repo it owns. Example mapping (replace
+with your own sessions and repo paths):
 
 | Session | Repo path |
 |---|---|
-| conductor | `/path/to/repo` |
-| treasurer | `/path/to/repo` |
-| weaver | `/path/to/repo` (weaver-side; tutor uses same repo, separate filenames) |
-| tutor | `/path/to/repo` |
-| infra | `/path/to/repo` |
-| taeys-hands | `/path/to/repo` |
-| codex-1 | `/path/to/repo` (codex-1's working dir is /path/to/repo but its outputs land where conductor would commit them; revisit when codex-1 is operational with full peer integration) |
+| coordinator | `/path/to/your/cockpit-repo/recaps/` |
+| session-a | `/path/to/your/repo-a/recaps/` |
+| session-b | `/path/to/your/repo-b/recaps/` (if two sessions share a repo, use distinct filenames) |
+| codex-1 | `/path/to/your/cockpit-repo/recaps/` (codex-1's working dir is `$HOME` but its outputs land where the coordinator would commit them) |
 
 Create the `recaps/` directory the first time you emit (`mkdir -p`).
 

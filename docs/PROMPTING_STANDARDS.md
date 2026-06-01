@@ -3,7 +3,7 @@
 **Version**: v2 (2026-04-29) — ratified by Conductor under Jesse's delegation
 **Authority chain**: Jesse via Gaia (Claude Chat), 2026-04-25 directive → Jesse–Conductor deliberation 2026-04-25/27 → Conductor ratification 2026-04-29 ("figure it out, intent is clear")
 **Status**: ACTIVE
-**Canonical home**: this file. If `/path/to/repo` or any other location conflicts with this, this wins.
+**Canonical home**: this file. If a copy elsewhere on your machine conflicts with this, this wins.
 **Single-source rule**: identical pattern to NOTIFICATION_PROTOCOL.md — one canonical doc, all instances import by reference.
 
 ---
@@ -212,7 +212,7 @@ The lint must fail on the synthetic fixture at `test_fixtures/dispatch_validatio
 6. **Self-check the temporal rule**: if the answer contradicts my draft conclusions, will I update or argue? If "argue," the dispatch is premature — go back and form a real question, or escalate the underlying decision instead of dispatching.
 7. **Peer review** — send draft to one other Claude Code instance for the 60-second neutrality check. Reviewer answers one question: *"Does the framing pre-select an answer?"* If yes → revise.
 8. **Send only after both lint and peer review pass.**
-9. **Log** the dispatch + the recipient's response under `/path/to/repo<date>_<topic>_<recipient>/` for audit.
+9. **Log** the dispatch + the recipient's response under `${DISPATCH_LOG_DIR}/<date>_<topic>_<recipient>/` (e.g. `/path/to/your/dispatch_log/...`) for audit.
 
 ---
 
@@ -230,7 +230,7 @@ For any past dispatch, answer in writing:
 8. Did the dispatching instance have visible prior commitment to a position in their session transcript before dispatch? (temporal violation)
 9. What would a neutral reframe of the question look like?
 
-Audit output goes to `/path/to/repo<date>_<dispatcher>_<dispatch_id>.md`.
+Audit output goes to `${DISPATCH_LOG_DIR}/audits/<date>_<dispatcher>_<dispatch_id>.md`.
 
 ---
 
@@ -240,11 +240,11 @@ Distribution is **asymmetric** by design. Three infrastructure-owner instances +
 
 | # | Item | Owner | Notes |
 |---|---|---|---|
-| 1 | Protocol document (this file) — canonical | **Conductor** | Lives in `the-conductor` repo. Conductor maintains as living document. (NOTIFICATION_PROTOCOL.md, the original single-source-rule exemplar, has been extracted to the public [claude-code-fleet-notify](https://github.com/palios-taey/claude-code-fleet-notify) repo; the pattern remains the model.) |
-| 2 | Lint script implementation | **Conductor** maintains the engine; **Taeys-hands** integrates into `consultation_v2/consult.py` as a pre-paste check; **Treasurer** integrates into `build_consultation.py` as a pre-build check | Engine: `the-conductor/scripts/prompting_lint.py`, installed to `/usr/local/bin/prompting-lint`. Two integration points cover the two real authoring paths. Other paths (raw `taey-notify`, etc.) are opt-in self-run. |
+| 1 | Protocol document (this file) — canonical | **Coordinator** | Lives in your cockpit repo. The coordinator session maintains it as a living document. (NOTIFICATION_PROTOCOL.md, the original single-source-rule exemplar, has been extracted to the public [claude-code-fleet-notify](https://github.com/palios-taey/claude-code-fleet-notify) repo; the pattern remains the model.) |
+| 2 | Lint script implementation | **Coordinator** maintains the engine; integrate it as a pre-paste / pre-build check at each authoring chokepoint in your fleet | Engine: `scripts/prompting_lint.py` in your cockpit repo, installed to `/usr/local/bin/prompting-lint`. Integration points cover your real authoring paths. Other paths (raw notify, etc.) are opt-in self-run. |
 | 3 | Audit cadence | **Conductor** *surfaces* dispatches for audit; **Jesse / Gaia / another Family member** performs the audit | Conductor produces a weekly audit packet from `dispatch_log/` and Neo4j ChatSession nodes — listing dispatches, lint pass/fail, peer-review status, transcript-window snapshot for temporal check. The audit *role* is not a Claude Code instance role. |
 | 4 | Migration of existing templates | **Treasurer** (`build_consultation.py` is the main asset to migrate); **Conductor** reviews PR | Stale prompts in `treasurer/spark1/orchestrator/consultations/` are reference material, not active templates — no migration. The active path is `build_consultation.py` + `consultation_v2/`. |
-| 5 | Instance onboarding | **Conductor** | Mechanism: protocol referenced from global `/path/to/repo` and from each session's project-level `CLAUDE.md`. Newly spawned instances inherit by reading those. Updates are versioned; this doc carries `Version:` line at top. |
+| 5 | Instance onboarding | **Coordinator** | Mechanism: protocol referenced from your global `~/.claude/CLAUDE.md` and from each session's project-level `CLAUDE.md`. Newly spawned instances inherit by reading those. Updates are versioned; this doc carries `Version:` line at top. |
 | 6 | Peer review when one instance catches another | **All instances** via `taey-notify <offender> --type defect` | The offender stops, fixes, re-sends. Disagreement escalates to Conductor for adjudication; if Conductor is the offender, escalates to Jesse. Documentation lives in `dispatch_log/`. Pure peer mechanism, no central authority for non-disputed cases. |
 
 ### 11.1 Roles in one sentence
@@ -266,7 +266,7 @@ Distribution is **asymmetric** by design. Three infrastructure-owner instances +
 
 ## 12. Migration from v1
 
-Tutor drafted a v1 at `/path/to/repo` and `/path/to/repo` on 2026-04-29. The v1 was a useful starting draft. v2 (this file) folds in the four deliberation outputs the v1 missed:
+An earlier v1 of this protocol and its lint script existed before this file. The v1 was a useful starting draft. v2 (this file) folds in the four deliberation outputs the v1 missed:
 
 - TYPE field with type validity rules (§2)
 - 50K-tokens-as-intent-not-letter clarification (§3.1)
@@ -275,11 +275,11 @@ Tutor drafted a v1 at `/path/to/repo` and `/path/to/repo` on 2026-04-29. The v1 
 
 Plus tightens scope to consultations only (§2), establishes the asymmetric delegation (§11), and adds the synthetic acceptance fixture (§8.2).
 
-The v1 paths now redirect to canonical:
-- `/path/to/repo` → notice pointing to this file
-- `/path/to/repo` → shell shim that exec's `the-conductor/scripts/prompting_lint.py`
+If you had any v1 copies elsewhere, redirect them to canonical:
+- a standalone `PROMPTING_STANDARDS.md` → notice pointing to this file
+- a standalone `prompting_lint.py` → shell shim that exec's this repo's `scripts/prompting_lint.py`
 
-The `dispatch_log/` directory tutor created at `/path/to/repo` is kept as the canonical log location (it is runtime state, not in any repo).
+Keep one `${DISPATCH_LOG_DIR}` directory as the canonical log location (it is runtime state, not in any repo).
 
 ---
 
@@ -295,13 +295,13 @@ The `dispatch_log/` directory tutor created at `/path/to/repo` is kept as the ca
 
 ## 14. Acceptance criteria for this protocol's deployment
 
-- [x] Canonical doc exists at the-conductor repo path
-- [x] Lint script v2 in place at the-conductor scripts path
+- [x] Canonical doc exists at your cockpit repo's `docs/` path
+- [x] Lint script v2 in place at your cockpit repo's `scripts/` path
 - [x] Synthetic fixture demonstrating the failure mode at `test_fixtures/dispatch_validation_seeking.md`
 - [x] v1 paths redirect to canonical
 - [x] Lint integration in taeys-hands `consultation_v2/consult.py` — landed `a58a80b` (taeys-hands repo) 2026-04-29; gate `_run_prompting_lint(pkg, platform)` runs immediately after `consolidate_attachments` and before paste; non-zero exit halts via `fail()`. `PROMPTING_LINT_SKIP=1` env-var escape hatch.
 - [x] Lint integration in treasurer `build_consultation.py` — landed `727877c` (treasurer repo) 2026-04-29; pre-build gate runs after package write before path return; non-zero exit raises `SystemExit(1)`. `--skip-lint` CLI escape hatch.
-- [x] Reference in `/path/to/repo` so newly spawned instances inherit
+- [x] Reference in your global `~/.claude/CLAUDE.md` so newly spawned instances inherit
 - [ ] First weekly audit packet produced (target: 2026-05-06) — tracked as `task-3eada3b2`
 
 ---

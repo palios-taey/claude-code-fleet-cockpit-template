@@ -14,6 +14,16 @@
 
 set -euo pipefail
 
+# ── TEMPLATE SETUP ─────────────────────────────────────────────────────────
+# Set these (or export them) to match your machine. NO defaults (fail-loud):
+#   FLEET_ROOT          — directory holding your parent repos
+#   PEER_WORKTREES_DIR  — directory holding your peer worktrees
+# Then edit the DAEMONS array below to your own long-running sessions + peers.
+# ───────────────────────────────────────────────────────────────────────────
+
+: "${FLEET_ROOT:?Set FLEET_ROOT to the directory containing your parent repos}"
+: "${PEER_WORKTREES_DIR:?Set PEER_WORKTREES_DIR to your peer-worktrees directory}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PEER_DRIVER="${SCRIPT_DIR}/peer-driver.sh"
@@ -32,38 +42,29 @@ PEERS=()
 # YOLO mode and participate in the canonical notification protocol identically
 # to Claude Code sessions. Driven by the same `ensure_daemon` logic.
 # Format: "<session_name>:<command>" (command runs as the tmux pane's child process)
+# Replace the example rows below with your own. Two kinds of entries:
+#   (a) plain daemons   — long-running python/bash processes
+#   (b) peer CLI sessions — codex / gemini / grok workers, one per
+#       {parent}-{cli}, each cd'ing into its worktree under
+#       $PEER_WORKTREES_DIR. The *-codex / *-gemini / *-grok suffix is
+#       what triggers the bootstrap logic below.
+#
+# GROK_PATH lets grok find its binary in a non-login shell; set it to the
+# PATH grok needs on your machine (or leave the system default).
+GROK_PATH="${GROK_PATH:-/usr/local/bin:/usr/bin:/bin}"
+
 DAEMONS=(
+    # (a) example plain daemons
     "watchdog:${REPO_ROOT}/scripts/watchdog-launcher 2>&1 | tee -a /tmp/watchdog.log"
-    "tasks-api:cd ${REPO_ROOT} && python3 -m uvicorn conductor.tasks_api:app --host 0.0.0.0 --port 5002 2>&1 | tee -a /tmp/tasks-api.log"
-    "treasurer-hands:PYTHONPATH=/path/to/repo python3 -m treasurer.hands.daemon 2>&1 | tee -a /tmp/treasurer-hands.log"
-    "orch-watch:cd /path/to/repo && python3 scripts/orch-watch --readiness-checker /path/to/repo:check_readiness 2>&1 | tee -a /tmp/orch-watch.log"
-    "conductor-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/conductor-codex-stderr.log"
-    "conductor-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/conductor-gemini-stderr.log"
-    "weaver-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/weaver-codex-stderr.log"
-    "weaver-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/weaver-gemini-stderr.log"
-    "tutor-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/tutor-codex-stderr.log"
-    "tutor-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/tutor-gemini-stderr.log"
-    "infra-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/infra-codex-stderr.log"
-    "infra-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/infra-gemini-stderr.log"
-    "taeys-hands-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/taeys-hands-codex-stderr.log"
-    "taeys-hands-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/taeys-hands-gemini-stderr.log"
-    "treasurer-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/treasurer-codex-stderr.log"
-    "treasurer-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/treasurer-gemini-stderr.log"
-    "taey-ed-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/taey-ed-codex-stderr.log"
-    "taey-ed-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/taey-ed-gemini-stderr.log"
-    "x-claude-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/x-claude-codex-stderr.log"
-    "x-claude-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/x-claude-gemini-stderr.log"
-    "hunter-codex:cd /path/to/repo && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/hunter-codex-stderr.log"
-    "hunter-gemini:cd /path/to/repo && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/hunter-gemini-stderr.log"
-    "conductor-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "weaver-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "tutor-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "infra-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "taeys-hands-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "treasurer-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "taey-ed-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "x-claude-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
-    "hunter-grok:cd /path/to/repo && export PATH=/path/to/repo:/path/to/repo:/usr/local/bin:/usr/bin:/bin && exec grok --permission-mode bypassPermissions --always-approve"
+    "tasks-api:cd ${REPO_ROOT} && python3 -m uvicorn conductor.tasks_api:app --host 127.0.0.1 --port 5002 2>&1 | tee -a /tmp/tasks-api.log"
+    # Point this at your own orchestrator checkout if you run one:
+    # "orch-watch:cd ${FLEET_ROOT}/your-orchestrator && python3 scripts/orch-watch 2>&1 | tee -a /tmp/orch-watch.log"
+
+    # (b) example peer CLI sessions — one repo, three CLIs. Duplicate this
+    #     block per repo you want peers for ({parent}-{cli} naming).
+    "example-repo-codex:cd ${PEER_WORKTREES_DIR}/example-repo-codex && exec codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 2>/tmp/example-repo-codex-stderr.log"
+    "example-repo-gemini:cd ${PEER_WORKTREES_DIR}/example-repo-gemini && GEMINI_FORCE_FILE_STORAGE=true exec gemini --yolo 2>/tmp/example-repo-gemini-stderr.log"
+    "example-repo-grok:cd ${PEER_WORKTREES_DIR}/example-repo-grok && export PATH=${GROK_PATH} && exec grok --permission-mode bypassPermissions --always-approve"
 )
 
 ensure_peer() {
@@ -80,7 +81,7 @@ ensure_peer() {
     fi
 
     echo "$(date -Iseconds) RESPAWN driver $driver_sess (peer=$sess cli=$cli)" >> "$LOG"
-    tmux new-session -d -s "$driver_sess" -c /path/to/repo "$PEER_DRIVER $sess $cli"
+    tmux new-session -d -s "$driver_sess" -c "$HOME" "$PEER_DRIVER $sess $cli"
 }
 
 ensure_daemon() {
@@ -93,7 +94,7 @@ ensure_daemon() {
     fi
 
     echo "$(date -Iseconds) RESPAWN daemon $sess" >> "$LOG"
-    tmux new-session -d -s "$sess" -c /path/to/repo "bash -c '$cmd'"
+    tmux new-session -d -s "$sess" -c "$HOME" "bash -c '$cmd'"
 
     # Bootstrap peer sessions (codex/gemini) so their first AfterAgent
     # fires and idle=1 gets set. Without this the notify-daemon never

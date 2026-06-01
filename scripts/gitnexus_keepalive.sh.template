@@ -6,7 +6,14 @@
 #   - peer-respawn.sh after each peer spawn (catches first-boot indexing)
 #   - manually any time
 #
-# Per Jesse 2026-05-15: indexing must stay current, fleet-wide.
+# Indexing must stay current, fleet-wide.
+#
+# ── TEMPLATE SETUP ─────────────────────────────────────────────────────────
+# Fill in your fleet layout below (or export these before invoking):
+#   FLEET_REPOS         — space-separated absolute paths to your parent repos
+#   PEER_WORKTREES_DIR  — directory holding your peer worktrees (one per peer)
+# Both must be set; there are NO defaults (fail-loud, per cockpit discipline).
+# ───────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
 
@@ -15,21 +22,30 @@ exec >> "$LOG" 2>&1
 
 echo "=== $(date -Iseconds) keepalive run ==="
 
-# Canonical repos (parent sessions' working directories)
-CANONICALS=(
-    /path/to/repo
-    /path/to/repo
-    /path/to/repo
-    /path/to/repo
-    /path/to/repo
-    /path/to/repo
-)
+# Canonical repos (parent sessions' working directories).
+# EITHER export FLEET_REPOS before running, OR replace the placeholder list.
+: "${FLEET_REPOS:=}"
+if [ -z "$FLEET_REPOS" ]; then
+    FLEET_REPOS="
+        /path/to/your/repo-one
+        /path/to/your/repo-two
+    "
+fi
 
-# All peer worktrees under /path/to/repo
+# Where your peer worktrees live (one subdir per peer).
+# Export PEER_WORKTREES_DIR before running, OR replace the placeholder.
+: "${PEER_WORKTREES_DIR:=/path/to/your/.peer-worktrees}"
+
+# shellcheck disable=SC2206
+CANONICALS=( $FLEET_REPOS )
+
+# All peer worktrees under $PEER_WORKTREES_DIR
 PEERS=()
-for d in /path/to/repo*/; do
-    [ -d "$d" ] && PEERS+=("${d%/}")
-done
+if [ -d "$PEER_WORKTREES_DIR" ]; then
+    for d in "$PEER_WORKTREES_DIR"/*/; do
+        [ -d "$d" ] && PEERS+=("${d%/}")
+    done
+fi
 
 reanalyze_if_stale() {
     local path="$1"

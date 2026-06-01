@@ -24,6 +24,7 @@ EXIT:
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -286,7 +287,7 @@ def lint(path: Path) -> int:
 def explain() -> int:
     print(__doc__ or "")
     print(
-        "Rules summary (canonical: /path/to/repo):\n"
+        "Rules summary (canonical: docs/PROMPTING_STANDARDS.md in your cockpit repo):\n"
         "  §2  TYPE field gating (consultation/directive/operational/verification)\n"
         "  §3  four required sections (Ground truth / Problem / Constraints / Objective)\n"
         "  §4  seven forbidden patterns (opinion injection, leading framing, truncation, anchoring)\n"
@@ -300,11 +301,14 @@ def explain() -> int:
 
 def self_test() -> int:
     """Run against test fixtures. Expects the validation-seeking fixture to FAIL."""
-    # Try canonical repo path first (works when installed at /usr/local/bin too).
+    # Resolve relative to this script's repo, then an optional env override
+    # (works when installed at /usr/local/bin too).
     candidates = [
-        Path("/path/to/repo"),
         Path(__file__).resolve().parent.parent / "test_fixtures" / "dispatch_validation_seeking.md",
     ]
+    env_fixture = os.environ.get("PROMPTING_LINT_FIXTURE")
+    if env_fixture:
+        candidates.insert(0, Path(env_fixture))
     fixture = next((c for c in candidates if c.exists()), None)
     if fixture is None:
         print(
